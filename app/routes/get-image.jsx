@@ -1,16 +1,12 @@
-import { generateTaskBMP } from "../utils/bmpImage";
-import { todoist } from "../utils/todoist";
+import poems from "../data/poem.json";
+import { generatePoemBMP } from "../utils/bmpImage";
 
 export async function loader({ params }) {
   try {
-    if (params.projectId === "get-tasks") {
-      return [];
-    }
-    const tasks = await todoist.getTasks({
-      projectId: params.projectId,
-    });
-    console.log(tasks.results);
-    const bmpBuffer = generateTaskBMP(tasks.results);
+    let filteredPoems = poems;
+    const randomIndex = Math.floor(Math.random() * filteredPoems.length);
+    const randomPoem = filteredPoems[randomIndex];
+    const bmpBuffer = generatePoemBMP(randomPoem);
     const dataUri = `data:image/bmp;base64,${bmpBuffer.toString("base64")}`;
 
     return dataUri;
@@ -19,12 +15,7 @@ export async function loader({ params }) {
     return [];
   }
 }
-
-export function HydrateFallback() {
-  return <div>Loading...</div>;
-}
-
-export default function Tasks({ loaderData }) {
+export default function Image({ loaderData }) {
   if (typeof loaderData !== "string" || !loaderData.startsWith("data:image")) {
     return <div>{loaderData || "Loading image..."}</div>;
   }

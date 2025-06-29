@@ -125,7 +125,12 @@ export function generatePoemBMP(poem) {
   return buffer;
 }
 
-export function generateTaskBMP(tasksData) {
+const getProjectNameById = (projects, id) => {
+  const project = projects.find((p) => p.id === id);
+  return project ? project.name : null;
+};
+
+export function generateTaskBMP(tasksData, projects) {
   const width = 800;
   const height = 480;
   const bitsPerPixel = 4;
@@ -161,7 +166,12 @@ export function generateTaskBMP(tasksData) {
 
   tasksData.forEach((task, index) => {
     const y = startY + index * lineHeight;
-    const taskTitle = task.content || "Untitled Task";
+    const taskTitle =
+      task.content +
+        " (P" +
+        (5 - task.priority) +
+        ") #" +
+        getProjectNameById(projects, task.projectId) || "Untitled Task";
 
     ctx.beginPath();
     ctx.arc(60, y + 15, 12, 0, Math.PI * 2, false);

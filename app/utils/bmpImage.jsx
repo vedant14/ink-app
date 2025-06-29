@@ -1,4 +1,6 @@
-import { createCanvas } from "canvas";
+import { createCanvas, loadImage } from "canvas";
+import { fs } from "fs";
+import path from "path";
 
 export function generatePoemBMP(poem) {
   const width = 800;
@@ -130,14 +132,13 @@ const getProjectNameById = (projects, id) => {
   return project ? project.name : null;
 };
 
-export function generateTaskBMP(tasksData, projects) {
+export function generateTaskBMP(tasksData, projects, catImagePath) {
   const width = 800;
   const height = 480;
   const bitsPerPixel = 4;
   const colorTableSize = 16;
-
   const bytesPerRowUnpadded = Math.ceil((width * bitsPerPixel) / 8);
-  const stride = Math.ceil(bytesPerRowUnpadded / 4) * 4;
+  const stride = Math.ceil(bytesPerRowUnpadded / 4) * 4; // Row size must be a multiple of 4 bytes
   const imageSize = stride * height;
 
   const bmpHeaderSize = 54;
@@ -145,87 +146,100 @@ export function generateTaskBMP(tasksData, projects) {
   const dibHeaderSize = 40;
   const pixelDataOffset = bmpHeaderSize + colorTableBytes;
   const fileSize = pixelDataOffset + imageSize;
-
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
-
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = "black";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-
-  ctx.font = "bold 40px sans-serif";
-  ctx.fillText("Tasks", 40, 40);
-
-  ctx.font = "28px sans-serif";
-  const lineHeight = 50;
-  let startY = 120;
-
-  tasksData.forEach((task, index) => {
-    const y = startY + index * lineHeight;
-    const taskTitle =
-      task.content +
-        " (P" +
-        (5 - task.priority) +
-        ") #" +
-        getProjectNameById(projects, task.projectId) || "Untitled Task";
-
-    ctx.beginPath();
-    ctx.arc(60, y + 15, 12, 0, Math.PI * 2, false);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "black";
-    ctx.stroke();
-
+  if (!tasksData || tasksData.length === 0) {
     ctx.fillStyle = "black";
-    ctx.fillText(taskTitle, 90, y);
-  });
+    ctx.font = "bold 32px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No tasks, read something nice today!", width / 2, 400);
+  } else {
+    ctx.fillStyle = "black";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
 
+    // Draw Title
+    ctx.font = "bold 40px sans-serif";
+    ctx.fillText("Tasks", 40, 40);
+
+    // Draw individual tasks
+    ctx.font = "28px sans-serif";
+    const lineHeight = 50;
+    let startY = 120;
+
+    tasksData.forEach((task, index) => {
+      const y = startY + index * lineHeight;
+      const projectName = getProjectNameById(projects, task.projectId);
+      const taskTitle =
+        `${task.content} (P${5 - task.priority}) #${projectName}` ||
+        "Untitled Task";
+
+      // Draw circle for the checkbox
+      ctx.beginPath();
+      ctx.arc(60, y + 15, 12, 0, Math.PI * 2, false);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "black";
+      ctx.stroke();
+
+      // Draw task text
+      ctx.fillStyle = "black";
+      ctx.fillText(taskTitle, 90, y);
+    });
+  }
+
+  // --- BMP Buffer Creation ---
   const buffer = Buffer.alloc(fileSize);
 
+  // --- File Header ---
   buffer.write("BM", 0);
   buffer.writeUInt32LE(fileSize, 2);
-  buffer.writeUInt32LE(0, 6);
+  buffer.writeUInt32LE(0, 6); // Reserved
   buffer.writeUInt32LE(pixelDataOffset, 10);
 
+  // --- DIB Header (Bitmap Information Header) ---
   buffer.writeUInt32LE(dibHeaderSize, 14);
   buffer.writeUInt32LE(width, 18);
   buffer.writeUInt32LE(height, 22);
-  buffer.writeUInt16LE(1, 26);
+  buffer.writeUInt16LE(1, 26); // Color Planes
   buffer.writeUInt16LE(bitsPerPixel, 28);
-  buffer.writeUInt32LE(0, 30);
+  buffer.writeUInt32LE(0, 30); // BI_RGB (no compression)
   buffer.writeUInt32LE(imageSize, 34);
-  buffer.writeUInt32LE(2835, 38);
-  buffer.writeUInt32LE(2835, 42);
+  buffer.writeUInt32LE(2835, 38); // Print resolution (72 DPI)
+  buffer.writeUInt32LE(2835, 42); // Print resolution (72 DPI)
   buffer.writeUInt32LE(colorTableSize, 46);
-  buffer.writeUInt32LE(0, 50);
+  buffer.writeUInt32LE(0, 50); // Important colors (0 = all)
 
+  // --- Color Palette (Grayscale) ---
   for (let i = 0; i < colorTableSize; i++) {
     const gray = Math.floor((i / (colorTableSize - 1)) * 255);
     const offset = bmpHeaderSize + i * 4;
-    buffer.writeUInt8(gray, offset);
-    buffer.writeUInt8(gray, offset + 1);
-    buffer.writeUInt8(gray, offset + 2);
-    buffer.writeUInt8(0, offset + 3);
+    buffer.writeUInt8(gray, offset); // Blue
+    buffer.writeUInt8(gray, offset + 1); // Green
+    buffer.writeUInt8(gray, offset + 2); // Red
+    buffer.writeUInt8(0, offset + 3); // Reserved
   }
 
+  // --- Pixel Data ---
+  // Iterate rows from bottom to top, as is standard for BMP
   for (let y = height - 1; y >= 0; y--) {
     const rowStart = pixelDataOffset + (height - 1 - y) * stride;
     for (let x = 0; x < width; x++) {
-      const color = ctx.getImageData(x, y, 1, 1).data[0];
-      let paletteIndex;
-      if (color < 64) paletteIndex = 0;
-      else if (color < 128) paletteIndex = 5;
-      else if (color < 192) paletteIndex = 10;
-      else paletteIndex = 15;
+      const color = ctx.getImageData(x, y, 1, 1).data[0]; // Get grayscale value
+
+      // Dither to the 16-color grayscale palette
+      let paletteIndex = Math.round((color / 255) * 15);
 
       const byteIndex = rowStart + Math.floor(x / 2);
+      // Each byte holds two 4-bit pixels
       if (x % 2 === 0) {
-        buffer[byteIndex] = paletteIndex << 4;
+        // First pixel in the byte (high nibble)
+        buffer[byteIndex] = (buffer[byteIndex] & 0x0f) | (paletteIndex << 4);
       } else {
-        buffer[byteIndex] |= paletteIndex;
+        // Second pixel in the byte (low nibble)
+        buffer[byteIndex] = (buffer[byteIndex] & 0xf0) | paletteIndex;
       }
     }
   }

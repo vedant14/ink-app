@@ -5,4 +5,12 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+  server: {
+    host: true,
+    hmr: {
+      clientPort: 443, // For secure (https) ngrok tunnels
+    }, allowedHosts: [
+      '.ngrok-free.app'
+    ]
+  }
 });

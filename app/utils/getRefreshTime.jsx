@@ -24,7 +24,7 @@ export const getRefreshTimeInSeconds = () => {
   );
 
   if (isWeekday && hour >= 8 && hour < 19) {
-    return 30 * 60;
+    return 60;
   }
 
   if (isWeekend && hour >= 8 && hour < 19) {

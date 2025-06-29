@@ -133,13 +133,18 @@ const getProjectNameById = (projects, id) => {
   return project ? project.name : null;
 };
 
-export function generateTaskBMP(tasksData, projects, catImagePath) {
+export function generateTaskBMP(
+  tasksData,
+  totalTasks,
+  tomorrowTasks,
+  projects
+) {
   const width = 800;
   const height = 480;
   const bitsPerPixel = 4;
   const colorTableSize = 16;
   const bytesPerRowUnpadded = Math.ceil((width * bitsPerPixel) / 8);
-  const stride = Math.ceil(bytesPerRowUnpadded / 4) * 4; // Row size must be a multiple of 4 bytes
+  const stride = Math.ceil(bytesPerRowUnpadded / 4) * 4;
   const imageSize = stride * height;
 
   const bmpHeaderSize = 54;
@@ -154,7 +159,7 @@ export function generateTaskBMP(tasksData, projects, catImagePath) {
   ctx.fillRect(0, 0, width, height);
   if (!tasksData || tasksData.length === 0) {
     ctx.fillStyle = "black";
-    ctx.font = "32px 'Open Sans'"; // Use the name you registered
+    ctx.font = "32px 'Open Sans'";
     ctx.textAlign = "center";
     ctx.fillText("No tasks, read something nice today!", width / 2, 400);
   } else {
@@ -162,12 +167,10 @@ export function generateTaskBMP(tasksData, projects, catImagePath) {
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
 
-    // Draw Title
-    ctx.font = "40px 'Open Sans'"; // Use the name you registered
-    ctx.fillText("Tasks", 40, 40);
+    ctx.font = "40px 'Open Sans'";
+    ctx.fillText("Tasks (" + totalTasks + ")", 40, 40);
 
-    // Draw individual tasks
-    ctx.font = "28px 'Open Sans'"; // Use the name you registered
+    ctx.font = "28px 'Open Sans'";
     const lineHeight = 50;
     let startY = 120;
 
@@ -178,68 +181,57 @@ export function generateTaskBMP(tasksData, projects, catImagePath) {
         `${task.content} (P${5 - task.priority}) #${projectName}` ||
         "Untitled Task";
 
-      // Draw circle for the checkbox
       ctx.beginPath();
       ctx.arc(60, y + 15, 12, 0, Math.PI * 2, false);
       ctx.lineWidth = 2;
       ctx.strokeStyle = "black";
       ctx.stroke();
-
-      // Draw task text
       ctx.fillStyle = "black";
       ctx.fillText(taskTitle, 90, y);
     });
   }
 
-  // --- BMP Buffer Creation ---
+  ctx.fillStyle = "black";
+  ctx.font = "18px 'Open Sans'";
+  ctx.fillText("Tomorrow's tasks: " + tomorrowTasks, 60, 400);
   const buffer = Buffer.alloc(fileSize);
-
-  // --- File Header ---
   buffer.write("BM", 0);
   buffer.writeUInt32LE(fileSize, 2);
-  buffer.writeUInt32LE(0, 6); // Reserved
+  buffer.writeUInt32LE(0, 6);
   buffer.writeUInt32LE(pixelDataOffset, 10);
-
-  // --- DIB Header (Bitmap Information Header) ---
   buffer.writeUInt32LE(dibHeaderSize, 14);
   buffer.writeUInt32LE(width, 18);
   buffer.writeUInt32LE(height, 22);
-  buffer.writeUInt16LE(1, 26); // Color Planes
+  buffer.writeUInt16LE(1, 26);
   buffer.writeUInt16LE(bitsPerPixel, 28);
-  buffer.writeUInt32LE(0, 30); // BI_RGB (no compression)
+  buffer.writeUInt32LE(0, 30);
   buffer.writeUInt32LE(imageSize, 34);
-  buffer.writeUInt32LE(2835, 38); // Print resolution (72 DPI)
-  buffer.writeUInt32LE(2835, 42); // Print resolution (72 DPI)
+  buffer.writeUInt32LE(2835, 38);
+  buffer.writeUInt32LE(2835, 42);
   buffer.writeUInt32LE(colorTableSize, 46);
-  buffer.writeUInt32LE(0, 50); // Important colors (0 = all)
+  buffer.writeUInt32LE(0, 50);
 
-  // --- Color Palette (Grayscale) ---
   for (let i = 0; i < colorTableSize; i++) {
     const gray = Math.floor((i / (colorTableSize - 1)) * 255);
     const offset = bmpHeaderSize + i * 4;
-    buffer.writeUInt8(gray, offset); // Blue
-    buffer.writeUInt8(gray, offset + 1); // Green
-    buffer.writeUInt8(gray, offset + 2); // Red
-    buffer.writeUInt8(0, offset + 3); // Reserved
+    buffer.writeUInt8(gray, offset);
+    buffer.writeUInt8(gray, offset + 1);
+    buffer.writeUInt8(gray, offset + 2);
+    buffer.writeUInt8(0, offset + 3);
   }
 
-  // --- Pixel Data ---
-  // Iterate rows from bottom to top, as is standard for BMP
   for (let y = height - 1; y >= 0; y--) {
     const rowStart = pixelDataOffset + (height - 1 - y) * stride;
     for (let x = 0; x < width; x++) {
-      const color = ctx.getImageData(x, y, 1, 1).data[0]; // Get grayscale value
+      const color = ctx.getImageData(x, y, 1, 1).data[0];
 
-      // Dither to the 16-color grayscale palette
       let paletteIndex = Math.round((color / 255) * 15);
 
       const byteIndex = rowStart + Math.floor(x / 2);
-      // Each byte holds two 4-bit pixels
+
       if (x % 2 === 0) {
-        // First pixel in the byte (high nibble)
         buffer[byteIndex] = (buffer[byteIndex] & 0x0f) | (paletteIndex << 4);
       } else {
-        // Second pixel in the byte (low nibble)
         buffer[byteIndex] = (buffer[byteIndex] & 0xf0) | paletteIndex;
       }
     }

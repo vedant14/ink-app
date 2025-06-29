@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@doist/todoist-api-typescript": "^5.0.2",
+    "@napi-rs/canvas": "^0.1.72",
     "@react-router/node": "^7.5.3",
     "@react-router/serve": "^7.5.3",
     "canvas": "^3.1.2",

@@ -1,6 +1,7 @@
-import { createCanvas, loadImage } from "canvas";
-import { fs } from "fs";
+import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
 import path from "path";
+const fontPath = path.join(process.cwd(), "public/fonts/NotoSans-Regular.ttf");
+GlobalFonts.registerFromPath(fontPath, "Open Sans");
 
 export function generatePoemBMP(poem) {
   const width = 800;
@@ -153,7 +154,7 @@ export function generateTaskBMP(tasksData, projects, catImagePath) {
   ctx.fillRect(0, 0, width, height);
   if (!tasksData || tasksData.length === 0) {
     ctx.fillStyle = "black";
-    ctx.font = "bold 32px sans-serif";
+    ctx.font = "32px 'Open Sans'"; // Use the name you registered
     ctx.textAlign = "center";
     ctx.fillText("No tasks, read something nice today!", width / 2, 400);
   } else {
@@ -162,11 +163,11 @@ export function generateTaskBMP(tasksData, projects, catImagePath) {
     ctx.textBaseline = "top";
 
     // Draw Title
-    ctx.font = "bold 40px sans-serif";
+    ctx.font = "40px 'Open Sans'"; // Use the name you registered
     ctx.fillText("Tasks", 40, 40);
 
     // Draw individual tasks
-    ctx.font = "28px sans-serif";
+    ctx.font = "28px 'Open Sans'"; // Use the name you registered
     const lineHeight = 50;
     let startY = 120;
 

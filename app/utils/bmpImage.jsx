@@ -239,3 +239,151 @@ export function generateTaskBMP(
 
   return buffer;
 }
+
+export function generateQuoteBMP(quote, author = "") {
+  // --- 1. Image and BMP File Configuration ---
+  const width = 800;
+  const height = 480;
+  const bitsPerPixel = 4; // 4-bit grayscale
+  const colorTableSize = 16; // 2^4 = 16 colors
+
+  // Calculate memory and size requirements for the BMP file
+  const bytesPerRowUnpadded = Math.ceil((width * bitsPerPixel) / 8);
+  const stride = Math.ceil(bytesPerRowUnpadded / 4) * 4; // Row size must be a multiple of 4 bytes
+  const imageSize = stride * height;
+
+  const bmpHeaderSize = 54;
+  const colorTableBytes = colorTableSize * 4;
+  const dibHeaderSize = 40;
+  const pixelDataOffset = bmpHeaderSize + colorTableBytes;
+  const fileSize = pixelDataOffset + imageSize;
+
+  // --- 2. Drawing the Quote on an In-Memory Canvas ---
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  // Set a white background
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, width, height);
+
+  // Style for the quote text
+  ctx.fillStyle = "black";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // Helper function to wrap text and draw it
+  function wrapAndDrawText(text, x, y, maxWidth, font, lineHeight) {
+    ctx.font = font;
+    const words = text.split(" ");
+    let line = "";
+    const lines = [];
+
+    // Create lines of text that fit within the maxWidth
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        lines.push(line);
+        line = words[n] + " ";
+      } else {
+        line = testLine;
+      }
+    }
+    lines.push(line);
+
+    // Calculate the total height to vertically center the block of text
+    const totalTextHeight = lines.length * lineHeight;
+    let startY = y - totalTextHeight / 2;
+
+    // Draw each line
+    lines.forEach((line, index) => {
+      ctx.fillText(line.trim(), x, startY + index * lineHeight);
+    });
+
+    // Return the Y position for the next element
+    return startY + totalTextHeight;
+  }
+
+  // Draw the main quote
+  const quoteFont = "48px 'Open Sans'";
+  const quoteLineHeight = 60;
+  const lastLineY = wrapAndDrawText(
+    quote,
+    width / 2,
+    height / 2,
+    width - 80,
+    quoteFont,
+    quoteLineHeight
+  );
+
+  // Draw the author if provided
+  if (author) {
+    ctx.font = "italic 32px 'Open Sans'";
+    ctx.textAlign = "right";
+    ctx.fillText(`- ${author}`, width - 60, lastLineY + 50);
+  }
+
+  // --- 3. Manually Building the BMP File Buffer ---
+
+  // Allocate memory for the entire file
+  const buffer = Buffer.alloc(fileSize);
+
+  // Write BMP Header (14 bytes)
+  buffer.write("BM", 0); // Magic number
+  buffer.writeUInt32LE(fileSize, 2);
+  buffer.writeUInt32LE(0, 6); // Reserved
+  buffer.writeUInt32LE(pixelDataOffset, 10);
+
+  // Write DIB Header (40 bytes)
+  buffer.writeUInt32LE(dibHeaderSize, 14);
+  buffer.writeUInt32LE(width, 18);
+  buffer.writeUInt32LE(height, 22);
+  buffer.writeUInt16LE(1, 26); // Color Planes
+  buffer.writeUInt16LE(bitsPerPixel, 28);
+  buffer.writeUInt32LE(0, 30); // BI_RGB (no compression)
+  buffer.writeUInt32LE(imageSize, 34);
+  buffer.writeUInt32LE(2835, 38); // Print resolution (72 DPI)
+  buffer.writeUInt32LE(2835, 42); // Print resolution (72 DPI)
+  buffer.writeUInt32LE(colorTableSize, 46);
+  buffer.writeUInt32LE(0, 50); // Important colors (0 = all)
+
+  // Write Color Table (Palette) - 16 shades of gray
+  for (let i = 0; i < colorTableSize; i++) {
+    const gray = Math.floor((i / (colorTableSize - 1)) * 255);
+    const offset = bmpHeaderSize + i * 4;
+    buffer.writeUInt8(gray, offset); // Blue
+    buffer.writeUInt8(gray, offset + 1); // Green
+    buffer.writeUInt8(gray, offset + 2); // Red
+    buffer.writeUInt8(0, offset + 3); // Reserved (Alpha)
+  }
+
+  // --- 4. Encoding Pixel Data from Canvas to BMP Format ---
+
+  // Iterate over canvas pixels from bottom-to-top (BMP standard)
+  for (let y = height - 1; y >= 0; y--) {
+    const rowStart = pixelDataOffset + (height - 1 - y) * stride;
+    for (let x = 0; x < width; x++) {
+      // Get the grayscale value of the pixel from the canvas
+      const color = ctx.getImageData(x, y, 1, 1).data[0];
+
+      // Find the closest color in our 16-color grayscale palette
+      let paletteIndex = Math.round((color / 255) * 15);
+
+      // Find the byte in the buffer where this pixel should be stored
+      const byteIndex = rowStart + Math.floor(x / 2);
+
+      // Pack two 4-bit pixels into a single 8-bit byte
+      if (x % 2 === 0) {
+        // Even pixel: goes in the high 4 bits
+        buffer[byteIndex] = (buffer[byteIndex] & 0x0f) | (paletteIndex << 4);
+      } else {
+        // Odd pixel: goes in the low 4 bits
+        buffer[byteIndex] = (buffer[byteIndex] & 0xf0) | paletteIndex;
+      }
+    }
+  }
+
+  return buffer;
+}

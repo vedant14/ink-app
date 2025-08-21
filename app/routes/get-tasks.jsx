@@ -1,32 +1,52 @@
-import { generateTaskBMP } from "../utils/bmpImage";
-import { getRefreshTimeInSeconds } from "../utils/getRefreshTime";
+import { generateQuoteBMP, generateTaskBMP } from "../utils/bmpImage";
+import {
+  isWorkingHours,
+  getSecondsUntilNextWorkdayStart,
+} from "../utils/timeUtils";
 import { todoist } from "../utils/todoist";
+import quotes from "../data/quotes.json";
 
 export async function loader({ params }) {
   try {
-    const projects = await todoist.getProjects();
-    const tasks = await todoist.getTasksByFilter({
-      query: "today | overdue",
-    });
-    const tomorrowTasks = await todoist.getTasksByFilter({
-      query: "tomorrow",
-    });
-
-    const bmpBuffer = generateTaskBMP(
-      tasks.results.slice(0, 6),
-      tasks.results.length,
-      tomorrowTasks.results.length,
-      projects.results
+    const now = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
     );
-    const base64Image = bmpBuffer.toString("base64");
-    const refreshTime = getRefreshTimeInSeconds();
-    return {
-      imageData: base64Image,
-      nextRefreshAfter: refreshTime,
-    };
+    if (isWorkingHours(now)) {
+      const projects = await todoist.getProjects();
+      const tasks = await todoist.getTasksByFilter({
+        query: "today | overdue",
+      });
+      const tomorrowTasks = await todoist.getTasksByFilter({
+        query: "tomorrow",
+      });
+      const bmpBuffer = generateTaskBMP(
+        tasks.results.slice(0, 6),
+        tasks.results.length,
+        tomorrowTasks.results.length,
+        projects.results
+      );
+      const base64Image = bmpBuffer.toString("base64");
+      return {
+        imageData: base64Image,
+        nextRefreshAfter: 30 * 60, // 30 minutes in seconds
+      };
+    } else {
+      const getRandomQuote = () => {
+        const randomIndex = Math.floor(Math.random() * quotes.length);
+        return quotes[randomIndex];
+      };
+      const quote = getRandomQuote();
+      const bmpBuffer = generateQuoteBMP(quote);
+      const base64Image = bmpBuffer.toString("base64");
+      const refreshTime = getSecondsUntilNextWorkdayStart(now);
+      return {
+        imageData: base64Image,
+        nextRefreshAfter: refreshTime,
+      };
+    }
   } catch (error) {
-    console.error("Failed to fetch tasks:", error);
-    return [];
+    console.error("Failed to generate image:", error);
+    return { error: "An error occurred." };
   }
 }
 

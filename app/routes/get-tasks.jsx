@@ -11,6 +11,11 @@ export async function loader({ params }) {
     const now = new Date(
       new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
     );
+    // const now = new Date();
+    // const today = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    // const diff = (1 - today + 7) % 7; // Calculate days until next Monday
+    // now.setDate(now.getDate() + diff); // Set the date to Monday
+    // now.setHours(12, 0, 0, 0); // Set the time to 10:00:00.000
     if (isWorkingHours(now)) {
       const projects = await todoist.getProjects();
       const tasks = await todoist.getTasksByFilter({
@@ -19,9 +24,23 @@ export async function loader({ params }) {
       const tomorrowTasks = await todoist.getTasksByFilter({
         query: "tomorrow",
       });
+
+      let dailyTasks = [];
+      let weeklyTasks = [];
+      tasks.results.forEach((task) => {
+        if (task.projectId === "6cvq3vGXcWHfxvc5") {
+          weeklyTasks.push(task);
+        } else {
+          dailyTasks.push(task);
+        }
+      });
+
+      console.log(weeklyTasks, dailyTasks);
+
       const bmpBuffer = generateTaskBMP(
-        tasks.results.slice(0, 6),
-        tasks.results.length,
+        weeklyTasks.slice(0, 3),
+        dailyTasks.slice(0, 6),
+        dailyTasks.length,
         tomorrowTasks.results.length,
         projects.results
       );

@@ -1,11 +1,7 @@
 export const isWorkingHours = (now) => {
   const hour = now.getHours();
   const minutes = now.getMinutes();
-
-  // Convert current time to total minutes from midnight for easy comparison
   const currentTimeInMinutes = hour * 60 + minutes;
-
-  // Define start and end times in minutes from midnight
   const startTimeInMinutes = 10 * 60 + 30; // 10:30 AM
   const endTimeInMinutes = 17 * 60; // 5:00 PM
 

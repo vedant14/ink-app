@@ -134,6 +134,7 @@ const getProjectNameById = (projects, id) => {
 };
 
 export function generateTaskBMP(
+  weeklyTasksData,
   tasksData,
   totalTasks,
   tomorrowTasks,
@@ -157,43 +158,68 @@ export function generateTaskBMP(
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, width, height);
-  if (!tasksData || tasksData.length === 0) {
-    ctx.fillStyle = "black";
-    ctx.font = "32px 'Open Sans'";
-    ctx.textAlign = "center";
-    ctx.fillText("No tasks, read something nice today!", width / 2, 400);
-  } else {
-    ctx.fillStyle = "black";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
 
+  ctx.fillStyle = "black";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  let startY = 40; // Initial Y position
+  if (weeklyTasksData && weeklyTasksData.length > 0) {
+    ctx.font = "bold 32px 'Open Sans'";
+    ctx.fillText("Weekly Focus", 40, startY);
+    startY += 50;
+
+    const weeklyLineHeight = 45;
+    ctx.font = "28px 'Open Sans'";
+    weeklyTasksData.forEach((task, index) => {
+      const y = startY + index * weeklyLineHeight;
+      const taskTitle = task.content;
+      ctx.fillText("★", 55, y);
+      ctx.fillText(taskTitle, 90, y);
+    });
+
+    startY += weeklyTasksData.length * weeklyLineHeight + 20; // Add padding
+    ctx.beginPath();
+    ctx.moveTo(40, startY);
+    ctx.lineTo(width - 40, startY);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "black";
+    ctx.stroke();
+    startY += 25;
+  }
+  if (!tasksData || tasksData.length === 0) {
+    ctx.textAlign = "center";
+    ctx.font = "32px 'Open Sans'";
+    ctx.fillText("No tasks for today, relax!", width / 2, height / 2 + 50);
+  } else {
+    ctx.textAlign = "left";
     ctx.font = "40px 'Open Sans'";
-    ctx.fillText("Tasks (" + totalTasks + ")", 40, 40);
+    ctx.fillText("Today (" + totalTasks + ")", 40, startY);
+    startY += 60;
 
     ctx.font = "28px 'Open Sans'";
     const lineHeight = 50;
-    let startY = 120;
 
     tasksData.forEach((task, index) => {
+      if (startY + index * lineHeight > height - 80) return; // Avoid drawing off-screen
       const y = startY + index * lineHeight;
       const projectName = getProjectNameById(projects, task.projectId);
-      const taskTitle =
-        `${task.content} (P${5 - task.priority}) #${projectName}` ||
-        "Untitled Task";
-
+      const taskTitle = `${task.content} (P${
+        5 - task.priority
+      }) #${projectName}`;
       ctx.beginPath();
       ctx.arc(60, y + 15, 12, 0, Math.PI * 2, false);
       ctx.lineWidth = 2;
       ctx.strokeStyle = "black";
       ctx.stroke();
+
       ctx.fillStyle = "black";
       ctx.fillText(taskTitle, 90, y);
     });
   }
-
   ctx.fillStyle = "black";
   ctx.font = "18px 'Open Sans'";
-  ctx.fillText("Tomorrow's tasks: " + tomorrowTasks, 60, 400);
+  ctx.fillText("Tomorrow's tasks: " + tomorrowTasks, 60, height - 40);
   const buffer = Buffer.alloc(fileSize);
   buffer.write("BM", 0);
   buffer.writeUInt32LE(fileSize, 2);
@@ -224,11 +250,8 @@ export function generateTaskBMP(
     const rowStart = pixelDataOffset + (height - 1 - y) * stride;
     for (let x = 0; x < width; x++) {
       const color = ctx.getImageData(x, y, 1, 1).data[0];
-
       let paletteIndex = Math.round((color / 255) * 15);
-
       const byteIndex = rowStart + Math.floor(x / 2);
-
       if (x % 2 === 0) {
         buffer[byteIndex] = (buffer[byteIndex] & 0x0f) | (paletteIndex << 4);
       } else {
@@ -239,7 +262,6 @@ export function generateTaskBMP(
 
   return buffer;
 }
-
 export function generateQuoteBMP(quote, author = "") {
   // --- 1. Image and BMP File Configuration ---
   const width = 800;

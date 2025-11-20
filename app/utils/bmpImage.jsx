@@ -133,12 +133,42 @@ const getProjectNameById = (projects, id) => {
   return project ? project.name : null;
 };
 
+function wrapText(context, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(" ");
+  let line = "";
+  let lines = [];
+
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + " ";
+    const metrics = context.measureText(testLine);
+    const testWidth = metrics.width;
+    if (testWidth > maxWidth && n > 0) {
+      lines.push(line);
+      line = words[n] + " ";
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line);
+
+  if (lines.length > 2) {
+    lines = lines.slice(0, 2);
+    lines[1] = lines[1].trim() + "...";
+  }
+
+
+  for (let i = 0; i < lines.length; i++) {
+    context.fillText(lines[i].trim(), x, y + i * lineHeight);
+  }
+}
+
 export function generateTaskBMP(
   weeklyTasksData,
   tasksData,
   totalTasks,
   tomorrowTasks,
-  projects
+  projects,
+  quote
 ) {
   const width = 800;
   const height = 480;
@@ -218,8 +248,9 @@ export function generateTaskBMP(
     });
   }
   ctx.fillStyle = "black";
-  ctx.font = "18px 'Open Sans'";
-  ctx.fillText("Tomorrow's tasks: " + tomorrowTasks, 60, height - 40);
+  ctx.font = "16px 'Open Sans'";
+  ctx.textAlign = "center";
+  wrapText(ctx, quote, width / 2, height - 60, width - 80, 20);
   const buffer = Buffer.alloc(fileSize);
   buffer.write("BM", 0);
   buffer.writeUInt32LE(fileSize, 2);

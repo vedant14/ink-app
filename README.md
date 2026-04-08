@@ -25,3 +25,8 @@ sudo systemctl start ink_script.service
 sudo systemctl status ink_script.service
 
 journalctl -u ink_script.service -f
+
+
+--
+
+rsync -avz --progress ./display vedantlohbare@raspberrypi.local:~

@@ -9,7 +9,7 @@ import quotes from "../data/quotes.json";
 export async function loader({ params }) {
   try {
     const now = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
     );
     if (isWorkingHours(now)) {
       const projects = await todoist.getProjects();
@@ -43,7 +43,7 @@ export async function loader({ params }) {
         dailyTasks.length,
         tomorrowTasks.results.length,
         projects.results,
-        quote
+        quote,
       );
       const base64Image = bmpBuffer.toString("base64");
       return {
@@ -56,8 +56,9 @@ export async function loader({ params }) {
         return quotes[randomIndex];
       };
       const quote = getRandomQuote();
-      const bmpBuffer = generateQuoteBMP(quote);
-      const base64Image = bmpBuffer.toString("base64");
+
+      const rawBuffer = generateQuoteBuffer(quote);
+      const base64Image = rawBuffer.toString("base64");
       const refreshTime = getSecondsUntilNextWorkdayStart(now);
       return {
         imageData: base64Image,

@@ -1,4 +1,4 @@
-import { generateQuoteBMP, generateTaskBMP } from "../utils/bmpImage";
+import { generateQuoteBuffer, generateTaskBMP } from "../utils/bmpImage";
 import {
   isWorkingHours,
   getSecondsUntilNextWorkdayStart,

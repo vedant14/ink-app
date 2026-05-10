@@ -1,10 +1,10 @@
-import { generateQuoteBMP } from "../utils/bmpImage";
+import { generateQuoteBuffer } from "../utils/bmpImage";
 import { getRefreshTimeInSeconds } from "../utils/getRefreshTime";
 
 import quotes from "../data/quotes.json";
 export async function loader({ params }) {
   try {
-    const quoteImage = generateQuoteBMP(quotes[0]);
+    const quoteImage = generateQuoteBuffer(quotes[0].quote, quotes[0].author);
     const base64Image = quoteImage.toString("base64");
     const refreshTime = getRefreshTimeInSeconds();
     return {

@@ -12,5 +12,13 @@ export default defineConfig({
     }, allowedHosts: [
       '.ngrok-free.app'
     ]
-  }
+  },
+  ssr: {
+    external: ["@napi-rs/canvas"],
+  },
+  build: {
+    rollupOptions: {
+      external: ["@napi-rs/canvas", "path", "fs", "os", "util", "stream", "url", "https", "http", "child_process"],
+    },
+  },
 });
